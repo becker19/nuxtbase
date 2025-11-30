@@ -1,9 +1,43 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, h, resolveComponent } from "vue";
 import { useNuxtApp } from "#app";
-import { useMyToast } from "~/composables/useMyToast";
+import { useToast } from "#imports";
 import type { TableColumn } from "@nuxt/ui";
 
+/* --------------------------------------------------
+   Componentes Nuxt UI
+-------------------------------------------------- */
+const UDropdownMenu = resolveComponent("UDropdownMenu");
+const UButton = resolveComponent("UButton");
+const UInput = resolveComponent("UInput");
+const UModal = resolveComponent("UModal");
+const UProgress = resolveComponent("UProgress");
+const UTable = resolveComponent("UTable");
+
+/* --------------------------------------------------
+   Toast helper
+-------------------------------------------------- */
+const toast = useToast();
+function showToast({
+  title,
+  description = "",
+  color = "primary",
+}: {
+  title: string;
+  description?: string;
+  color?: "primary" | "success" | "error" | "warning" | "info";
+}) {
+  toast.add({
+    title,
+    description,
+    color,
+    // position: "top-center",
+  });
+}
+
+/* --------------------------------------------------
+   Tipos
+-------------------------------------------------- */
 interface Column {
   key: string;
   label: string;
@@ -16,7 +50,6 @@ interface Action {
   label: string;
   handle: (row: any) => Promise<void>;
 }
-
 interface Props {
   apiUrl: string;
   columns: Column[];
@@ -27,10 +60,15 @@ interface Props {
   perPage?: number;
 }
 
+/* --------------------------------------------------
+   Props y API
+-------------------------------------------------- */
 const props = defineProps<Props>();
 const { $api } = useNuxtApp();
-const toast = useMyToast();
 
+/* --------------------------------------------------
+   State
+-------------------------------------------------- */
 const data = ref<any[]>([]);
 const page = ref(1);
 const totalPages = ref(1);
@@ -41,15 +79,45 @@ const modalVisible = ref(false);
 const modalTitle = ref("Nuevo registro");
 const form = ref<Record<string, any>>({});
 
-// Columnas para UTable
+const confirmVisible = ref(false);
+const confirmMessage = ref("");
+const confirmAction = ref<null | (() => Promise<void>)>(null);
+
+/* --------------------------------------------------
+   Columnas dinámicas
+-------------------------------------------------- */
 const columns: TableColumn<any>[] = [
-  ...props.columns.map((col) => ({ accessorKey: col.key, header: col.label })),
-  { id: "actions", header: "Acciones", cell: () => "" },
+  ...props.columns.map((col) => ({
+    accessorKey: col.key,
+    header: col.label,
+  })),
+  {
+    id: "actions",
+    header: "Acciones",
+    cell: (info) =>
+      h(
+        UDropdownMenu,
+        {
+          content: { align: "end" },
+          items: props.actions.map((a) => ({
+            label: a.label,
+            onSelect: () => handleAction(a, info.row.original),
+          })),
+        },
+        () =>
+          h(UButton, {
+            icon: "i-lucide-ellipsis-vertical",
+            variant: "ghost",
+            color: "neutral",
+            size: "sm",
+          })
+      ),
+  },
 ];
 
-const actions = props.actions;
-
-// Funciones
+/* --------------------------------------------------
+   Fetch data
+-------------------------------------------------- */
 async function fetchData() {
   loading.value = true;
   try {
@@ -63,13 +131,16 @@ async function fetchData() {
     data.value = res.data.data.data;
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
-  } catch (err: any) {
-    toast.add({ text: err?.message || "Error al cargar datos", type: "error" });
+  } catch (err) {
+    showToast({ title: "Error al cargar datos", color: "error" });
   } finally {
     loading.value = false;
   }
 }
 
+/* --------------------------------------------------
+   Paginación
+-------------------------------------------------- */
 function prevPage() {
   if (page.value > 1) {
     page.value--;
@@ -83,6 +154,9 @@ function nextPage() {
   }
 }
 
+/* --------------------------------------------------
+   Modal crear / editar
+-------------------------------------------------- */
 function openModal(item: any = null) {
   if (item) {
     modalTitle.value = "Editar registro";
@@ -94,88 +168,104 @@ function openModal(item: any = null) {
   modalVisible.value = true;
 }
 
+/* --------------------------------------------------
+   Submit form
+-------------------------------------------------- */
 async function submitForm() {
   loading.value = true;
   try {
+    let res;
     if (form.value[props.keyField]) {
-      await $api.put(
+      res = await $api.put(
         `${props.apiUrl}/${form.value[props.keyField]}`,
         form.value
       );
-      toast.add({ text: "Registro actualizado", type: "success" });
+      showToast({
+        title: "Actualizado",
+        description: res.data.message || "Actualizado correctamente",
+        color: "success",
+      });
     } else {
-      await $api.post(props.apiUrl, form.value);
-      toast.add({ text: "Registro creado", type: "success" });
+      res = await $api.post(props.apiUrl, form.value);
+      showToast({
+        title: "Creado",
+        description: res.data.message || "Creado correctamente",
+        color: "success",
+      });
     }
     modalVisible.value = false;
     fetchData();
   } catch (err: any) {
-    toast.add({ text: err?.message || "Error al guardar", type: "error" });
+    showToast({
+      title: "Error",
+      description:
+        err?.response?.data?.message || err?.message || "Error al guardar",
+      color: "error",
+    });
   } finally {
     loading.value = false;
   }
 }
 
+/* --------------------------------------------------
+   Confirmación acciones
+-------------------------------------------------- */
 async function handleAction(action: Action, row: any) {
-  loading.value = true;
-  try {
-    await action.handle(row);
-    toast.add({ text: `${action.label} ejecutado`, type: "success" });
-    fetchData();
-  } catch (err: any) {
-    toast.add({ text: err?.message || "Error en la acción", type: "error" });
-  } finally {
-    loading.value = false;
-  }
+  confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
+  confirmVisible.value = true;
+  confirmAction.value = async () => {
+    loading.value = true;
+    try {
+      await action.handle(row);
+      showToast({
+        title: "Completado",
+        description: "Acción realizada correctamente.",
+        color: "success",
+      });
+      fetchData();
+    } catch (err: any) {
+      showToast({
+        title: "Error",
+        description: err?.message || "Error inesperado.",
+        color: "error",
+      });
+    } finally {
+      loading.value = false;
+      confirmVisible.value = false;
+    }
+  };
 }
 
 fetchData();
 
-// ✅ Exportar tipos para el padre
 export type { Column, Field, Action };
 </script>
+
 <template>
   <div class="p-4 relative">
-    <!-- Header: buscador + nuevo -->
-    <div class="flex justify-between items-center mb-4 gap-2">
-      <div class="flex gap-2">
+    <!-- BUSCADOR + NUEVO -->
+    <div class="flex justify-between items-center mb-4">
+      <!-- Grupo de búsqueda a la izquierda -->
+      <div class="flex items-center gap-2">
         <UInput
+          v-if="props.showSearch !== false"
           v-model="searchQuery"
           placeholder="Buscar..."
-          class="max-w-sm"
           @keyup.enter="fetchData"
+          class="w-64"
         />
-        <UButton icon="i-lucide-search" @click="fetchData" />
+        <UButton color="primary" icon="i-lucide-search" @click="fetchData" />
       </div>
-      <!-- Botón disparador del modal -->
-      <UButton color="primary" label="Nuevo registro" @click="openModal()" />
+
+      <!-- Botón Nuevo registro a la derecha -->
+      <UButton color="primary" label="Nuevo" @click="openModal()" />
     </div>
 
-    <!-- Tabla -->
-    <UTable :data="data" :columns="columns" sticky class="h-96">
-      <template #cell(actions)="props">
-        <UDropdownMenu
-          :items="
-            actions.map((a) => ({
-              label: a.label,
-              onSelect: () => handleAction(a, props.row.original),
-            }))
-          "
-          :content="{ align: 'end' }"
-        >
-          <UButton
-            icon="i-lucide-ellipsis-vertical"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            aria-label="Actions"
-          />
-        </UDropdownMenu>
-      </template>
-    </UTable>
+    <!-- TABLA -->
+    <UTable :data="data" :columns="columns" sticky />
 
-    <!-- Paginación -->
-    <div class="flex justify-end items-center gap-2 mt-4">
+    <!-- PAGINACIÓN -->
+    <div class="flex justify-end gap-2 mt-4">
       <UButton label="Anterior" @click="prevPage" :disabled="page === 1" />
       <span>{{ page }} / {{ totalPages }}</span>
       <UButton
@@ -185,39 +275,54 @@ export type { Column, Field, Action };
       />
     </div>
 
-    <!-- Modal correctamente configurado -->
-    <UModal v-model:open="modalVisible" :overlay="true" size="lg">
-      <!-- Si quieres un título -->
+    <!-- MODAL FORM -->
+    <UModal v-model:open="modalVisible" size="lg">
       <template #header>
-        <h3 class="text-lg font-semibold">
-          {{ modalTitle }}
-        </h3>
+        <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
       </template>
-
       <template #body>
         <div class="flex flex-col gap-4 p-4">
           <UInput
-            v-for="field in formFields"
-            :key="field.key"
-            v-model="form[field.key]"
-            :placeholder="field.label"
+            v-for="f in props.formFields"
+            :key="f.key"
+            v-model="form[f.key]"
+            :placeholder="f.label"
           />
         </div>
       </template>
-
       <template #footer>
-        <div class="flex justify-end gap-2 p-4">
-          <UButton
-            label="Cancelar"
-            variant="outline"
-            @click="modalVisible = false"
-          />
-          <UButton label="Guardar" color="primary" @click="submitForm" />
-        </div>
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="modalVisible = false"
+        />
+        <UButton label="Guardar" color="primary" @click="submitForm" />
       </template>
     </UModal>
 
-    <!-- Loading overlay cuando hay peticiones -->
+    <!-- MODAL CONFIRMACIÓN -->
+    <UModal v-model:open="confirmVisible" size="sm">
+      <template #header>
+        <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
+      </template>
+      <template #body>
+        <p class="text-gray-700">{{ confirmMessage }}</p>
+      </template>
+      <template #footer>
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="confirmVisible = false"
+        />
+        <UButton
+          label="Confirmar"
+          color="red"
+          @click="confirmAction && confirmAction()"
+        />
+      </template>
+    </UModal>
+
+    <!-- LOADING OVERLAY -->
     <div
       v-if="loading"
       class="absolute inset-0 flex items-center justify-center bg-white/50 z-50"

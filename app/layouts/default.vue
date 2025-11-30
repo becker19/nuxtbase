@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import type { NavigationMenuItem, TabsItem } from "@nuxt/ui";
 import UserMenu from "@/components/UserMenu.vue";
+import DarkModeButton from "@/components/DarkModeButton.vue";
 
 const isSidebarCollapsed = ref(false);
 
@@ -99,13 +100,14 @@ const toggleSidebar = () => {
         </template>
 
         <template #right>
-          <UTabs
+          <DarkModeButton />
+          <!-- <UTabs
             :items="tabsItems"
             default-value="all"
             size="sm"
             class="w-40"
             :content="false"
-          />
+          /> -->
         </template>
       </UDashboardNavbar>
 

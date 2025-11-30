@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import { ref, h } from "vue";
+import { ref, h, resolveComponent } from "vue";
 import { useNuxtApp } from "#app";
 import { useToast } from "#imports";
 import type { TableColumn } from "@nuxt/ui";
 
+/* --------------------------------------------------
+   Componentes Nuxt UI
+-------------------------------------------------- */
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 const UInput = resolveComponent("UInput");
 const UModal = resolveComponent("UModal");
 const UProgress = resolveComponent("UProgress");
-
-const toast = useToast();
+const UTable = resolveComponent("UTable");
 
 /* --------------------------------------------------
-   Helper unificado de toast (TOAST ARRIBA)
+   Toast helper
 -------------------------------------------------- */
+const toast = useToast();
 function showToast({
   title,
   description = "",
@@ -28,7 +31,7 @@ function showToast({
     title,
     description,
     color,
-    // position: "top-center", // 👈 FORZAMOS QUE APAREZCA ARRIBA
+    // position: "top-center",
   });
 }
 
@@ -58,7 +61,7 @@ interface Props {
 }
 
 /* --------------------------------------------------
-   Props
+   Props y API
 -------------------------------------------------- */
 const props = defineProps<Props>();
 const { $api } = useNuxtApp();
@@ -76,9 +79,6 @@ const modalVisible = ref(false);
 const modalTitle = ref("Nuevo registro");
 const form = ref<Record<string, any>>({});
 
-/* --------------------------------------------------
-   Modal de confirmación
--------------------------------------------------- */
 const confirmVisible = ref(false);
 const confirmMessage = ref("");
 const confirmAction = ref<null | (() => Promise<void>)>(null);
@@ -128,7 +128,6 @@ async function fetchData() {
         search: searchQuery.value,
       },
     });
-
     data.value = res.data.data.data;
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
@@ -174,33 +173,26 @@ function openModal(item: any = null) {
 -------------------------------------------------- */
 async function submitForm() {
   loading.value = true;
-
   try {
     let res;
-
     if (form.value[props.keyField]) {
-      // UPDATE
       res = await $api.put(
         `${props.apiUrl}/${form.value[props.keyField]}`,
         form.value
       );
-
       showToast({
         title: "Actualizado",
         description: res.data.message || "Actualizado correctamente",
         color: "success",
       });
     } else {
-      // CREATE
       res = await $api.post(props.apiUrl, form.value);
-
       showToast({
         title: "Creado",
         description: res.data.message || "Creado correctamente",
         color: "success",
       });
     }
-
     modalVisible.value = false;
     fetchData();
   } catch (err: any) {
@@ -216,24 +208,20 @@ async function submitForm() {
 }
 
 /* --------------------------------------------------
-   Modal de confirmación antes de ejecutar acción
+   Confirmación acciones
 -------------------------------------------------- */
 async function handleAction(action: Action, row: any) {
   confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
   confirmVisible.value = true;
-
   confirmAction.value = async () => {
     loading.value = true;
-
     try {
       await action.handle(row);
-
       showToast({
         title: "Completado",
         description: "Acción realizada correctamente.",
         color: "success",
       });
-
       fetchData();
     } catch (err: any) {
       showToast({
@@ -256,15 +244,21 @@ export type { Column, Field, Action };
 <template>
   <div class="p-4 relative">
     <!-- BUSCADOR + NUEVO -->
-    <div class="flex justify-between mb-4">
-      <UInput
-        v-if="props.showSearch !== false"
-        v-model="searchQuery"
-        placeholder="Buscar..."
-        @keyup.enter="fetchData"
-      />
+    <div class="flex justify-between items-center mb-4">
+      <!-- Grupo de búsqueda a la izquierda -->
+      <div class="flex items-center gap-2">
+        <UInput
+          v-if="props.showSearch !== false"
+          v-model="searchQuery"
+          placeholder="Buscar..."
+          @keyup.enter="fetchData"
+          class="w-64"
+        />
+        <UButton color="primary" icon="i-lucide-search" @click="fetchData" />
+      </div>
 
-      <UButton color="primary" label="Nuevo registro" @click="openModal()" />
+      <!-- Botón Nuevo registro a la derecha -->
+      <UButton color="primary" label="Nuevo" @click="openModal()" />
     </div>
 
     <!-- TABLA -->
@@ -286,7 +280,6 @@ export type { Column, Field, Action };
       <template #header>
         <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
       </template>
-
       <template #body>
         <div class="flex flex-col gap-4 p-4">
           <UInput
@@ -297,7 +290,6 @@ export type { Column, Field, Action };
           />
         </div>
       </template>
-
       <template #footer>
         <UButton
           label="Cancelar"
@@ -313,11 +305,9 @@ export type { Column, Field, Action };
       <template #header>
         <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
       </template>
-
       <template #body>
         <p class="text-gray-700">{{ confirmMessage }}</p>
       </template>
-
       <template #footer>
         <UButton
           label="Cancelar"
