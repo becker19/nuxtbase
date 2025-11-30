@@ -1,12 +1,9 @@
-<script lang="ts">
-import Toast from "./components/Toast.vue";
-</script>
+<script lang="ts"></script>
 
 <template>
   <UApp>
     <NuxtLayout>
       <NuxtPage />
-      <Toast />
     </NuxtLayout>
   </UApp>
 </template>

@@ -2,29 +2,23 @@
 import DataTable2 from "@/components/DynamicTable2.vue";
 import type { Column, Field, Action } from "@/components/DynamicTable2.vue";
 import { useNuxtApp } from "#app";
+import { useConfirm } from "~/composables/useConfirm"; // ✅ IMPORTANTE
 
-// ---------------------------
-// Definición de columnas
-// ---------------------------
+// Obtener función para abrir el modal
+const { ask } = useConfirm(); // ✅
+
 const columns: Column[] = [
   { key: "id", label: "ID" },
   { key: "name", label: "Nombre" },
   { key: "description", label: "Descripcion" },
-  // { key: "status", label: "Estado" },
 ];
 
-// ---------------------------
-// Campos del formulario
-// ---------------------------
 const formFields: Field[] = [
   { key: "name", label: "Nombre" },
   { key: "description", label: "Descripcion" },
-  // { key: "status", label: "Estado" },
 ];
 
-// ---------------------------
-// Acciones por fila
-// ---------------------------
+// Tipo usuario
 interface User {
   id: number;
   name: string;
@@ -32,29 +26,28 @@ interface User {
   status: string;
 }
 
+// Acciones por fila
 const actions: Action[] = [
   {
     label: "Eliminar",
     handle: async (row: User) => {
       const { $api } = useNuxtApp();
-      try {
-        await $api.delete(`/users/${row.id}`);
-        alert(`Usuario ${row.name} eliminado`);
-      } catch (err: any) {
-        alert(err?.message || "Error al eliminar");
-      }
+      await $api.delete(`/categoria/${row.id}`);
+      console.log(`Usuario ${row.name} eliminado`);
     },
   },
   {
     label: "Activar",
     handle: async (row: User) => {
-      const { $api } = useNuxtApp();
-      try {
-        await $api.put(`/users/${row.id}/activate`);
-        alert(`Usuario ${row.name} activado`);
-      } catch (err: any) {
-        alert(err?.message || "Error al activar");
-      }
+      ask(async () => {
+        const { $api } = useNuxtApp();
+        try {
+          await $api.put(`/users/${row.id}/activate`);
+          console.log(`Usuario ${row.name} activado`);
+        } catch (err: any) {
+          console.error(err);
+        }
+      }, `¿Activar al usuario "${row.name}"?`);
     },
   },
 ];
@@ -64,7 +57,6 @@ const actions: Action[] = [
   <div class="p-8">
     <h1 class="text-2xl font-bold mb-4">Categoria</h1>
 
-    <!-- Componente hijo -->
     <DataTable2
       api-url="/categoria"
       :columns="columns"

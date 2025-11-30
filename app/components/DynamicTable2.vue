@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, h } from "vue";
 import { useNuxtApp } from "#app";
-import { useMyToast } from "~/composables/useMyToast";
 import type { TableColumn } from "@nuxt/ui";
+
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 const UInput = resolveComponent("UInput");
@@ -34,7 +34,6 @@ interface Props {
 
 const props = defineProps<Props>();
 const { $api } = useNuxtApp();
-const toast = useMyToast();
 
 const data = ref<any[]>([]);
 const page = ref(1);
@@ -45,6 +44,13 @@ const loading = ref(false);
 const modalVisible = ref(false);
 const modalTitle = ref("Nuevo registro");
 const form = ref<Record<string, any>>({});
+
+// --------------------------------------------------
+// 🔥 Estado del modal de confirmación
+// --------------------------------------------------
+const confirmVisible = ref(false);
+const confirmMessage = ref("");
+const confirmAction = ref<null | (() => Promise<void>)>(null);
 
 // Columnas dinámicas
 const columns: TableColumn<any>[] = [
@@ -59,7 +65,7 @@ const columns: TableColumn<any>[] = [
           content: { align: "end" },
           items: props.actions.map((a) => ({
             label: a.label,
-            onSelect: () => handleAction(a, info.row),
+            onSelect: () => handleAction(a, info.row.original),
           })),
         },
         () =>
@@ -73,7 +79,6 @@ const columns: TableColumn<any>[] = [
   },
 ];
 
-// Funciones
 async function fetchData() {
   loading.value = true;
   try {
@@ -84,11 +89,11 @@ async function fetchData() {
         search: searchQuery.value,
       },
     });
+
     data.value = res.data.data.data;
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
   } catch (err: any) {
-    toast.add({ text: err?.message || "Error al cargar datos", type: "error" });
   } finally {
     loading.value = false;
   }
@@ -100,6 +105,7 @@ function prevPage() {
     fetchData();
   }
 }
+
 function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;
@@ -120,38 +126,48 @@ function openModal(item: any = null) {
 
 async function submitForm() {
   loading.value = true;
+
   try {
-    if (form.value[props.keyField])
+    if (form.value[props.keyField]) {
       await $api.put(
         `${props.apiUrl}/${form.value[props.keyField]}`,
         form.value
       );
-    else await $api.post(props.apiUrl, form.value);
-    toast.add({ text: "Registro guardado", type: "success" });
+    } else {
+      await $api.post(props.apiUrl, form.value);
+    }
+
     modalVisible.value = false;
     fetchData();
   } catch (err: any) {
-    toast.add({ text: err?.message || "Error al guardar", type: "error" });
   } finally {
     loading.value = false;
   }
 }
 
+// --------------------------------------------------
+// 🔥 Modal de confirmación antes de ejecutar acción
+// --------------------------------------------------
 async function handleAction(action: Action, row: any) {
-  loading.value = true;
-  try {
-    await action.handle(row);
-    toast.add({ text: `${action.label} ejecutado`, type: "success" });
-    fetchData();
-  } catch (err: any) {
-    toast.add({ text: err?.message || "Error en la acción", type: "error" });
-  } finally {
-    loading.value = false;
-  }
+  confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
+  confirmVisible.value = true;
+
+  confirmAction.value = async () => {
+    loading.value = true;
+    try {
+      await action.handle(row); // <-- ahora SÍ ejecuta delete
+
+      fetchData();
+    } catch (err: any) {
+    } finally {
+      loading.value = false;
+      confirmVisible.value = false;
+    }
+  };
 }
 
 fetchData();
-// ✅ Exportar tipos para el padre
+
 export type { Column, Field, Action };
 </script>
 
@@ -179,10 +195,12 @@ export type { Column, Field, Action };
       />
     </div>
 
+    <!-- FORM MODAL -->
     <UModal v-model:open="modalVisible" :overlay="true" size="lg">
-      <template #header
-        ><h3 class="text-lg font-semibold">{{ modalTitle }}</h3></template
-      >
+      <template #header>
+        <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
+      </template>
+
       <template #body>
         <div class="flex flex-col gap-4 p-4">
           <UInput
@@ -193,6 +211,7 @@ export type { Column, Field, Action };
           />
         </div>
       </template>
+
       <template #footer>
         <UButton
           label="Cancelar"
@@ -200,6 +219,30 @@ export type { Column, Field, Action };
           @click="modalVisible = false"
         />
         <UButton label="Guardar" color="primary" @click="submitForm" />
+      </template>
+    </UModal>
+
+    <!-- CONFIRMATION MODAL -->
+    <UModal v-model:open="confirmVisible" :overlay="true" size="sm">
+      <template #header>
+        <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
+      </template>
+
+      <template #body>
+        <p class="text-gray-700">{{ confirmMessage }}</p>
+      </template>
+
+      <template #footer>
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="confirmVisible = false"
+        />
+        <UButton
+          label="Confirmar"
+          color="red"
+          @click="confirmAction && confirmAction()"
+        />
       </template>
     </UModal>
 
