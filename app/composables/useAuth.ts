@@ -1,0 +1,178 @@
+// /composables/useAuth.ts
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+
+interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    access_token: string;
+    token_type: string;
+  };
+}
+
+export const useAuth = () => {
+  const router = useRouter();
+  const token = ref<string | null>(null); // Token global reactivo
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
+  // Inicializar token desde localStorage en cliente
+  if (import.meta.client) {
+    const stored = localStorage.getItem("token");
+    if (stored) token.value = stored;
+  }
+
+  const { $api } = useNuxtApp();
+
+  // Función de login
+  const login = async (email: string, password: string) => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await $api.post<LoginResponse>("/login", {
+        email,
+        password,
+      });
+
+      const data = response.data;
+
+      if (data.success) {
+        token.value = data.data.access_token;
+        me();
+
+        // Guardar token en localStorage
+        if (import.meta.client && token.value) {
+          localStorage.setItem("token", token.value);
+        }
+
+        // Redirigir al dashboard
+        router.push("/dashboard");
+      } else {
+        error.value = data.message || "Error al iniciar sesión";
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.message || "Error al iniciar sesión";
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // Función de logout
+  const logout = async () => {
+    try {
+      // Token ya se envía automáticamente por el interceptor del plugin
+      await $api.post("/logout");
+    } catch (err) {
+      console.error("Error al cerrar sesión:", err);
+    }
+
+    // Limpiar token local
+    token.value = null;
+    // if (import.meta.client) localStorage.removeItem("token");
+    if (import.meta.client) localStorage.clear();
+
+    // Redirigir al login
+    router.push("/login");
+  };
+
+  // EXTRAER ME
+  const me = async () => {
+    try {
+      const response = await $api.get("/me");
+      const data = response.data.data;
+
+      // Guardar como string
+      if (import.meta.client) {
+        localStorage.setItem("me", JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error("Error al obtener /me:", err);
+    }
+  };
+
+  return {
+    token,
+    loading,
+    error,
+    login,
+    logout,
+  };
+};
+
+// // /composables/useAuth.ts
+// import { ref } from "vue";
+
+// interface LoginResponse {
+//   success: boolean;
+//   message: string;
+//   data: {
+//     access_token: string;
+//     token_type: string;
+//   };
+// }
+
+// export const useAuth = () => {
+//   const token = ref<string | null>(
+//     typeof window !== "undefined" ? localStorage.getItem("token") : null
+//   );
+//   const error = ref<string | null>(null);
+//   const loading = ref(false);
+
+//   const { $api } = useNuxtApp();
+
+//   const login = async (email: string, password: string) => {
+//     loading.value = true;
+//     error.value = null;
+
+//     try {
+//       const response = await $api.post<LoginResponse>("/login", {
+//         email,
+//         password,
+//       });
+//       const data = response.data;
+
+//       if (data.success) {
+//         token.value = data.data.access_token;
+
+//         if (typeof window !== "undefined") {
+//           localStorage.setItem("token", data.data.access_token);
+//         }
+
+//         return navigateTo("/dashboard");
+//       } else {
+//         error.value = data.message || "Error al iniciar sesión";
+//       }
+//     } catch (err: any) {
+//       error.value = err.response?.data?.message || "Error al iniciar sesión";
+//     } finally {
+//       loading.value = false;
+//     }
+//   };
+
+//   // const logout = async () => {
+//   //   token.value = null;
+
+//   //   try {
+//   //     const response = await $api.post<LoginResponse>("/logout");
+//   //     console.log("🚀 ~ logout ~ response:", response);
+//   //   } catch (error) {
+//   //     console.log(error);
+//   //   }
+
+//   //   // if (typeof window !== "undefined") {
+//   //   //   localStorage.removeItem("token");
+//   //   // }
+
+//   //   // return navigateTo("/login");
+//   // };
+
+//   return {
+//     token,
+//     error,
+//     loading,
+//     login,
+//     logout,
+//   };
+// };
