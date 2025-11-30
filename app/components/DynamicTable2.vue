@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, h } from "vue";
 import { useNuxtApp } from "#app";
+import { useToast } from "#imports";
 import type { TableColumn } from "@nuxt/ui";
 
 const UDropdownMenu = resolveComponent("UDropdownMenu");
@@ -9,6 +10,11 @@ const UInput = resolveComponent("UInput");
 const UModal = resolveComponent("UModal");
 const UProgress = resolveComponent("UProgress");
 
+const toast = useToast();
+
+/* --------------------------------------------------
+   Tipos
+-------------------------------------------------- */
 interface Column {
   key: string;
   label: string;
@@ -21,7 +27,6 @@ interface Action {
   label: string;
   handle: (row: any) => Promise<void>;
 }
-
 interface Props {
   apiUrl: string;
   columns: Column[];
@@ -32,9 +37,15 @@ interface Props {
   perPage?: number;
 }
 
+/* --------------------------------------------------
+   Props
+-------------------------------------------------- */
 const props = defineProps<Props>();
 const { $api } = useNuxtApp();
 
+/* --------------------------------------------------
+   State
+-------------------------------------------------- */
 const data = ref<any[]>([]);
 const page = ref(1);
 const totalPages = ref(1);
@@ -45,14 +56,16 @@ const modalVisible = ref(false);
 const modalTitle = ref("Nuevo registro");
 const form = ref<Record<string, any>>({});
 
-// --------------------------------------------------
-// 🔥 Estado del modal de confirmación
-// --------------------------------------------------
+/* --------------------------------------------------
+   Modal de confirmación
+-------------------------------------------------- */
 const confirmVisible = ref(false);
 const confirmMessage = ref("");
 const confirmAction = ref<null | (() => Promise<void>)>(null);
 
-// Columnas dinámicas
+/* --------------------------------------------------
+   Columnas dinámicas
+-------------------------------------------------- */
 const columns: TableColumn<any>[] = [
   ...props.columns.map((col) => ({ accessorKey: col.key, header: col.label })),
   {
@@ -79,6 +92,9 @@ const columns: TableColumn<any>[] = [
   },
 ];
 
+/* --------------------------------------------------
+   Fetch data
+-------------------------------------------------- */
 async function fetchData() {
   loading.value = true;
   try {
@@ -93,19 +109,22 @@ async function fetchData() {
     data.value = res.data.data.data;
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
-  } catch (err: any) {
+  } catch (err) {
+    toast.add({ title: "Error al cargar datos", color: "error" });
   } finally {
     loading.value = false;
   }
 }
 
+/* --------------------------------------------------
+   Paginación
+-------------------------------------------------- */
 function prevPage() {
   if (page.value > 1) {
     page.value--;
     fetchData();
   }
 }
-
 function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;
@@ -113,6 +132,9 @@ function nextPage() {
   }
 }
 
+/* --------------------------------------------------
+   Modal crear / editar
+-------------------------------------------------- */
 function openModal(item: any = null) {
   if (item) {
     modalTitle.value = "Editar registro";
@@ -124,41 +146,82 @@ function openModal(item: any = null) {
   modalVisible.value = true;
 }
 
+/* --------------------------------------------------
+   Submit form
+-------------------------------------------------- */
 async function submitForm() {
+  const toast = useToast();
   loading.value = true;
 
   try {
+    let res;
+
     if (form.value[props.keyField]) {
-      await $api.put(
+      // UPDATE
+      res = await $api.put(
         `${props.apiUrl}/${form.value[props.keyField]}`,
         form.value
       );
+
+      toast.add({
+        title: "Actualizado",
+        description: res.data.message || "Actualizado correctamente",
+        color: "success",
+      });
     } else {
-      await $api.post(props.apiUrl, form.value);
+      // CREATE
+      res = await $api.post(props.apiUrl, form.value);
+
+      toast.add({
+        title: "Creado",
+        description: res.data.message || "Creado correctamente",
+        color: "success",
+      });
     }
 
     modalVisible.value = false;
     fetchData();
   } catch (err: any) {
+    toast.add({
+      title: "Error",
+      description:
+        err?.response?.data?.message || err?.message || "Error al guardar",
+      color: "error",
+    });
   } finally {
     loading.value = false;
   }
 }
 
-// --------------------------------------------------
-// 🔥 Modal de confirmación antes de ejecutar acción
-// --------------------------------------------------
+/* --------------------------------------------------
+   Modal de confirmación antes de ejecutar acción
+-------------------------------------------------- */
 async function handleAction(action: Action, row: any) {
+  const toast = useToast();
+
   confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
   confirmVisible.value = true;
 
   confirmAction.value = async () => {
     loading.value = true;
+
     try {
-      await action.handle(row); // <-- ahora SÍ ejecuta delete
+      await action.handle(row);
+
+      // 👇 Este toast se dispara si la acción se ejecuta sin errores
+      toast.add({
+        title: "Completado",
+        description: "Acción realizada correctamente.",
+        color: "success",
+      });
 
       fetchData();
     } catch (err: any) {
+      toast.add({
+        title: "Error",
+        description: err?.message || "Error inesperado.",
+        color: "error",
+      });
     } finally {
       loading.value = false;
       confirmVisible.value = false;
@@ -168,11 +231,13 @@ async function handleAction(action: Action, row: any) {
 
 fetchData();
 
+// ✅ Exportar tipos para el padre
 export type { Column, Field, Action };
 </script>
 
 <template>
   <div class="p-4 relative">
+    <!-- BUSCADOR + NUEVO -->
     <div class="flex justify-between mb-4">
       <UInput
         v-if="props.showSearch !== false"
@@ -180,11 +245,14 @@ export type { Column, Field, Action };
         placeholder="Buscar..."
         @keyup.enter="fetchData"
       />
+
       <UButton color="primary" label="Nuevo registro" @click="openModal()" />
     </div>
 
+    <!-- TABLA -->
     <UTable :data="data" :columns="columns" sticky class="h-96" />
 
+    <!-- PAGINACIÓN -->
     <div class="flex justify-end gap-2 mt-4">
       <UButton label="Anterior" @click="prevPage" :disabled="page === 1" />
       <span>{{ page }} / {{ totalPages }}</span>
@@ -195,8 +263,8 @@ export type { Column, Field, Action };
       />
     </div>
 
-    <!-- FORM MODAL -->
-    <UModal v-model:open="modalVisible" :overlay="true" size="lg">
+    <!-- MODAL FORM -->
+    <UModal v-model:open="modalVisible" size="lg">
       <template #header>
         <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
       </template>
@@ -222,8 +290,8 @@ export type { Column, Field, Action };
       </template>
     </UModal>
 
-    <!-- CONFIRMATION MODAL -->
-    <UModal v-model:open="confirmVisible" :overlay="true" size="sm">
+    <!-- MODAL DE CONFIRMACIÓN -->
+    <UModal v-model:open="confirmVisible" size="sm">
       <template #header>
         <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
       </template>
@@ -246,6 +314,7 @@ export type { Column, Field, Action };
       </template>
     </UModal>
 
+    <!-- LOADING OVERLAY -->
     <div
       v-if="loading"
       class="absolute inset-0 flex items-center justify-center bg-white/50 z-50"

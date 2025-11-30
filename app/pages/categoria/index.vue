@@ -32,8 +32,23 @@ const actions: Action[] = [
     label: "Eliminar",
     handle: async (row: User) => {
       const { $api } = useNuxtApp();
-      await $api.delete(`/categoria/${row.id}`);
-      console.log(`Usuario ${row.name} eliminado`);
+      const toast = useToast();
+
+      try {
+        const res = await $api.delete(`/categoria/${row.id}`);
+
+        toast.add({
+          title: "Éxito",
+          description: res.data.message, // 👈 mensaje del backend
+          color: "success",
+        });
+      } catch (err: any) {
+        toast.add({
+          title: "Error",
+          description: err?.response?.data?.message || "Ocurrió un error",
+          color: "error",
+        });
+      }
     },
   },
   {
