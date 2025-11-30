@@ -13,6 +13,26 @@ const UProgress = resolveComponent("UProgress");
 const toast = useToast();
 
 /* --------------------------------------------------
+   Helper unificado de toast (TOAST ARRIBA)
+-------------------------------------------------- */
+function showToast({
+  title,
+  description = "",
+  color = "primary",
+}: {
+  title: string;
+  description?: string;
+  color?: "primary" | "success" | "error" | "warning" | "info";
+}) {
+  toast.add({
+    title,
+    description,
+    color,
+    // position: "top-center", // 👈 FORZAMOS QUE APAREZCA ARRIBA
+  });
+}
+
+/* --------------------------------------------------
    Tipos
 -------------------------------------------------- */
 interface Column {
@@ -67,7 +87,10 @@ const confirmAction = ref<null | (() => Promise<void>)>(null);
    Columnas dinámicas
 -------------------------------------------------- */
 const columns: TableColumn<any>[] = [
-  ...props.columns.map((col) => ({ accessorKey: col.key, header: col.label })),
+  ...props.columns.map((col) => ({
+    accessorKey: col.key,
+    header: col.label,
+  })),
   {
     id: "actions",
     header: "Acciones",
@@ -110,7 +133,7 @@ async function fetchData() {
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
   } catch (err) {
-    toast.add({ title: "Error al cargar datos", color: "error" });
+    showToast({ title: "Error al cargar datos", color: "error" });
   } finally {
     loading.value = false;
   }
@@ -150,7 +173,6 @@ function openModal(item: any = null) {
    Submit form
 -------------------------------------------------- */
 async function submitForm() {
-  const toast = useToast();
   loading.value = true;
 
   try {
@@ -163,7 +185,7 @@ async function submitForm() {
         form.value
       );
 
-      toast.add({
+      showToast({
         title: "Actualizado",
         description: res.data.message || "Actualizado correctamente",
         color: "success",
@@ -172,7 +194,7 @@ async function submitForm() {
       // CREATE
       res = await $api.post(props.apiUrl, form.value);
 
-      toast.add({
+      showToast({
         title: "Creado",
         description: res.data.message || "Creado correctamente",
         color: "success",
@@ -182,7 +204,7 @@ async function submitForm() {
     modalVisible.value = false;
     fetchData();
   } catch (err: any) {
-    toast.add({
+    showToast({
       title: "Error",
       description:
         err?.response?.data?.message || err?.message || "Error al guardar",
@@ -197,8 +219,6 @@ async function submitForm() {
    Modal de confirmación antes de ejecutar acción
 -------------------------------------------------- */
 async function handleAction(action: Action, row: any) {
-  const toast = useToast();
-
   confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
   confirmVisible.value = true;
 
@@ -208,8 +228,7 @@ async function handleAction(action: Action, row: any) {
     try {
       await action.handle(row);
 
-      // 👇 Este toast se dispara si la acción se ejecuta sin errores
-      toast.add({
+      showToast({
         title: "Completado",
         description: "Acción realizada correctamente.",
         color: "success",
@@ -217,7 +236,7 @@ async function handleAction(action: Action, row: any) {
 
       fetchData();
     } catch (err: any) {
-      toast.add({
+      showToast({
         title: "Error",
         description: err?.message || "Error inesperado.",
         color: "error",
@@ -231,7 +250,6 @@ async function handleAction(action: Action, row: any) {
 
 fetchData();
 
-// ✅ Exportar tipos para el padre
 export type { Column, Field, Action };
 </script>
 
@@ -250,7 +268,7 @@ export type { Column, Field, Action };
     </div>
 
     <!-- TABLA -->
-    <UTable :data="data" :columns="columns" sticky class="h-96" />
+    <UTable :data="data" :columns="columns" sticky />
 
     <!-- PAGINACIÓN -->
     <div class="flex justify-end gap-2 mt-4">
@@ -290,7 +308,7 @@ export type { Column, Field, Action };
       </template>
     </UModal>
 
-    <!-- MODAL DE CONFIRMACIÓN -->
+    <!-- MODAL CONFIRMACIÓN -->
     <UModal v-model:open="confirmVisible" size="sm">
       <template #header>
         <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
