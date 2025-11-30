@@ -1,0 +1,213 @@
+<script setup lang="ts">
+import { ref, h } from "vue";
+import { useNuxtApp } from "#app";
+import { useMyToast } from "~/composables/useMyToast";
+import type { TableColumn } from "@nuxt/ui";
+const UDropdownMenu = resolveComponent("UDropdownMenu");
+const UButton = resolveComponent("UButton");
+const UInput = resolveComponent("UInput");
+const UModal = resolveComponent("UModal");
+const UProgress = resolveComponent("UProgress");
+
+interface Column {
+  key: string;
+  label: string;
+}
+interface Field {
+  key: string;
+  label: string;
+}
+interface Action {
+  label: string;
+  handle: (row: any) => Promise<void>;
+}
+
+interface Props {
+  apiUrl: string;
+  columns: Column[];
+  formFields: Field[];
+  keyField: string;
+  actions: Action[];
+  showSearch?: boolean;
+  perPage?: number;
+}
+
+const props = defineProps<Props>();
+const { $api } = useNuxtApp();
+const toast = useMyToast();
+
+const data = ref<any[]>([]);
+const page = ref(1);
+const totalPages = ref(1);
+const searchQuery = ref("");
+const loading = ref(false);
+
+const modalVisible = ref(false);
+const modalTitle = ref("Nuevo registro");
+const form = ref<Record<string, any>>({});
+
+// Columnas dinámicas
+const columns: TableColumn<any>[] = [
+  ...props.columns.map((col) => ({ accessorKey: col.key, header: col.label })),
+  {
+    id: "actions",
+    header: "Acciones",
+    cell: (info) =>
+      h(
+        UDropdownMenu,
+        {
+          content: { align: "end" },
+          items: props.actions.map((a) => ({
+            label: a.label,
+            onSelect: () => handleAction(a, info.row),
+          })),
+        },
+        () =>
+          h(UButton, {
+            icon: "i-lucide-ellipsis-vertical",
+            variant: "ghost",
+            color: "neutral",
+            size: "sm",
+          })
+      ),
+  },
+];
+
+// Funciones
+async function fetchData() {
+  loading.value = true;
+  try {
+    const res = await $api.get(props.apiUrl, {
+      params: {
+        page: page.value,
+        per_page: props.perPage || 10,
+        search: searchQuery.value,
+      },
+    });
+    data.value = res.data.data.data;
+    page.value = res.data.data.current_page;
+    totalPages.value = res.data.data.last_page;
+  } catch (err: any) {
+    toast.add({ text: err?.message || "Error al cargar datos", type: "error" });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function prevPage() {
+  if (page.value > 1) {
+    page.value--;
+    fetchData();
+  }
+}
+function nextPage() {
+  if (page.value < totalPages.value) {
+    page.value++;
+    fetchData();
+  }
+}
+
+function openModal(item: any = null) {
+  if (item) {
+    modalTitle.value = "Editar registro";
+    form.value = { ...item };
+  } else {
+    modalTitle.value = "Nuevo registro";
+    form.value = Object.fromEntries(props.formFields.map((f) => [f.key, ""]));
+  }
+  modalVisible.value = true;
+}
+
+async function submitForm() {
+  loading.value = true;
+  try {
+    if (form.value[props.keyField])
+      await $api.put(
+        `${props.apiUrl}/${form.value[props.keyField]}`,
+        form.value
+      );
+    else await $api.post(props.apiUrl, form.value);
+    toast.add({ text: "Registro guardado", type: "success" });
+    modalVisible.value = false;
+    fetchData();
+  } catch (err: any) {
+    toast.add({ text: err?.message || "Error al guardar", type: "error" });
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function handleAction(action: Action, row: any) {
+  loading.value = true;
+  try {
+    await action.handle(row);
+    toast.add({ text: `${action.label} ejecutado`, type: "success" });
+    fetchData();
+  } catch (err: any) {
+    toast.add({ text: err?.message || "Error en la acción", type: "error" });
+  } finally {
+    loading.value = false;
+  }
+}
+
+fetchData();
+// ✅ Exportar tipos para el padre
+export type { Column, Field, Action };
+</script>
+
+<template>
+  <div class="p-4 relative">
+    <div class="flex justify-between mb-4">
+      <UInput
+        v-if="props.showSearch !== false"
+        v-model="searchQuery"
+        placeholder="Buscar..."
+        @keyup.enter="fetchData"
+      />
+      <UButton color="primary" label="Nuevo registro" @click="openModal()" />
+    </div>
+
+    <UTable :data="data" :columns="columns" sticky class="h-96" />
+
+    <div class="flex justify-end gap-2 mt-4">
+      <UButton label="Anterior" @click="prevPage" :disabled="page === 1" />
+      <span>{{ page }} / {{ totalPages }}</span>
+      <UButton
+        label="Siguiente"
+        @click="nextPage"
+        :disabled="page === totalPages"
+      />
+    </div>
+
+    <UModal v-model:open="modalVisible" :overlay="true" size="lg">
+      <template #header
+        ><h3 class="text-lg font-semibold">{{ modalTitle }}</h3></template
+      >
+      <template #body>
+        <div class="flex flex-col gap-4 p-4">
+          <UInput
+            v-for="f in props.formFields"
+            :key="f.key"
+            v-model="form[f.key]"
+            :placeholder="f.label"
+          />
+        </div>
+      </template>
+      <template #footer>
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="modalVisible = false"
+        />
+        <UButton label="Guardar" color="primary" @click="submitForm" />
+      </template>
+    </UModal>
+
+    <div
+      v-if="loading"
+      class="absolute inset-0 flex items-center justify-center bg-white/50 z-50"
+    >
+      <UProgress linear indeterminate />
+    </div>
+  </div>
+</template>

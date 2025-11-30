@@ -1,25 +1,3 @@
-// // /plugins/axios.ts
-// import axios from "axios";
-// import { defineNuxtPlugin } from "#app";
-
-// export default defineNuxtPlugin(() => {
-//   const config = useRuntimeConfig();
-
-//   const api = axios.create({
-//     baseURL: config.public.apiBase as string, // tu API principal
-//     headers: {
-//       "Content-Type": "application/json",
-//     },
-//   });
-
-//   return {
-//     provide: {
-//       api, // ahora disponible como $api
-//     },
-//   };
-// });
-// /plugins/axios.ts
-// /plugins/axios.ts
 import axios from "axios";
 import { defineNuxtPlugin } from "#app";
 

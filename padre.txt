@@ -1,0 +1,52 @@
+<template>
+  <div class="p-8">
+    <h1 class="text-2xl font-bold mb-4">Usuarios</h1>
+
+    <!-- Componente hijo -->
+    <DataTable2
+      api-url="/categoria"
+      :columns="columns"
+      :form-fields="formFields"
+      key-field="id"
+      :actions="actions"
+      :per-page="5"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import DataTable2 from "@/components/DynamicTable2.vue"; // tu componente hijo
+import type { Column, Field, Action } from "@/components/DynamicTable2.vue"; // si exportaste tipos
+
+// Columnas de la tabla
+const columns: Column[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  { key: "description", label: "DESCRIPCION" },
+];
+
+// Campos del formulario del modal
+const formFields: Field[] = [
+  { key: "name", label: "Nombre" },
+  { key: "description", label: "DESCRIPCION" },
+];
+
+// Acciones para cada fila
+const actions: Action[] = [
+  {
+    label: "Eliminar",
+    handle: async (row) => {
+      // Ejemplo de acción usando $api de Nuxt
+      const { $api } = useNuxtApp();
+      await $api.delete(`/users/${row.id}`);
+    },
+  },
+  {
+    label: "Activar",
+    handle: async (row) => {
+      const { $api } = useNuxtApp();
+      await $api.put(`/users/${row.id}/activate`);
+    },
+  },
+];
+</script>
