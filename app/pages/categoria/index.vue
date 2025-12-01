@@ -2,23 +2,13 @@
 import DataTable2 from "@/components/DynamicTable2.vue";
 import type { Column, Field, Action } from "@/components/DynamicTable2.vue";
 import { useNuxtApp } from "#app";
-import { useConfirm } from "~/composables/useConfirm"; // ✅ IMPORTANTE
+import { useToast } from "#imports";
+import { useConfirm } from "~/composables/useConfirm";
 
-// Obtener función para abrir el modal
-const { ask } = useConfirm(); // ✅
+const { ask } = useConfirm();
+const { $api } = useNuxtApp();
+const toast = useToast();
 
-const columns: Column[] = [
-  { key: "id", label: "ID" },
-  { key: "name", label: "Nombre" },
-  { key: "description", label: "Descripcion" },
-];
-
-const formFields: Field[] = [
-  { key: "name", label: "Nombre" },
-  { key: "description", label: "Descripcion" },
-];
-
-// Tipo usuario
 interface User {
   id: number;
   name: string;
@@ -26,53 +16,107 @@ interface User {
   status: string;
 }
 
-// Acciones por fila
+const columns: Column[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  { key: "description", label: "Descripción" },
+];
+
+const formFields: Field[] = [
+  { key: "name", label: "Nombre" },
+  { key: "description", label: "Descripción" },
+];
+
 const actions: Action[] = [
+  {
+    label: "Editar",
+    handle: async (row: User) => {
+      /* Ya emite 'edit' automáticamente */
+    },
+  },
   {
     label: "Eliminar",
     handle: async (row: User) => {
-      const { $api } = useNuxtApp();
-      const toast = useToast();
-
-      try {
-        const res = await $api.delete(`/categoria/${row.id}`);
-
+      await ask(async () => {
+        await $api.delete(`/categoria/${row.id}`);
         toast.add({
           title: "Éxito",
-          description: res.data.message, // 👈 mensaje del backend
+          description: `Se eliminó ${row.name}`,
           color: "success",
         });
-      } catch (err: any) {
-        toast.add({
-          title: "Error",
-          description: err?.response?.data?.message || "Ocurrió un error",
-          color: "error",
-        });
-      }
+      }, `¿Eliminar al usuario "${row.name}"?`);
     },
   },
   {
     label: "Activar",
     handle: async (row: User) => {
-      ask(async () => {
-        const { $api } = useNuxtApp();
-        try {
-          await $api.put(`/users/${row.id}/activate`);
-          console.log(`Usuario ${row.name} activado`);
-        } catch (err: any) {
-          console.error(err);
-        }
+      await ask(async () => {
+        await $api.put(`/users/${row.id}/activate`);
+        toast.add({
+          title: "Éxito",
+          description: `Usuario ${row.name} activado`,
+          color: "success",
+        });
       }, `¿Activar al usuario "${row.name}"?`);
     },
   },
 ];
+
+const modalVisible = ref(false);
+const modalTitle = ref("Nuevo registro");
+const form = ref<Record<string, any>>({});
+const tableRef = ref<any>(null);
+
+/* Abrir modal */
+function openModal(row: User | null = null) {
+  if (row) {
+    modalTitle.value = "Editar registro";
+    form.value = { ...row };
+  } else {
+    modalTitle.value = "Nuevo registro";
+    form.value = Object.fromEntries(formFields.map((f) => [f.key, ""]));
+  }
+  modalVisible.value = true;
+}
+
+/* Guardar registro */
+async function submitForm() {
+  try {
+    if (form.value.id) {
+      const res = await $api.put(`/categoria/${form.value.id}`, form.value);
+      toast.add({
+        title: "Actualizado",
+        description: res.data.message,
+        color: "success",
+      });
+    } else {
+      const res = await $api.post("/categoria", form.value);
+      toast.add({
+        title: "Creado",
+        description: res.data.message,
+        color: "success",
+      });
+    }
+    modalVisible.value = false;
+
+    // 🔹 Refrescar tabla automáticamente
+    tableRef.value?.fetchData?.();
+  } catch (err: any) {
+    toast.add({
+      title: "Error",
+      description: err?.response?.data?.message || "Ocurrió un error",
+      color: "error",
+    });
+  }
+}
 </script>
 
 <template>
   <div class="p-8">
-    <h1 class="text-2xl font-bold mb-4">Categoria</h1>
+    <h1 class="text-2xl font-bold mb-4">Categorías</h1>
 
     <DataTable2
+      ref="tableRef"
       api-url="/categoria"
       :columns="columns"
       :form-fields="formFields"
@@ -80,6 +124,31 @@ const actions: Action[] = [
       :actions="actions"
       :per-page="5"
       :show-search="true"
+      @edit="openModal"
     />
+
+    <UModal v-model:open="modalVisible" size="lg">
+      <template #header
+        ><h3 class="text-lg font-semibold">{{ modalTitle }}</h3></template
+      >
+      <template #body>
+        <div class="flex flex-col gap-4 p-4">
+          <UInput
+            v-for="f in formFields"
+            :key="f.key"
+            v-model="form[f.key]"
+            :placeholder="f.label"
+          />
+        </div>
+      </template>
+      <template #footer>
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="modalVisible = false"
+        />
+        <UButton label="Guardar" color="primary" @click="submitForm" />
+      </template>
+    </UModal>
   </div>
 </template>

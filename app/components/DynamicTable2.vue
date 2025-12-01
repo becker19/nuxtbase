@@ -4,9 +4,7 @@ import { useNuxtApp } from "#app";
 import { useToast } from "#imports";
 import type { TableColumn } from "@nuxt/ui";
 
-/* --------------------------------------------------
-   Componentes Nuxt UI
--------------------------------------------------- */
+/* Componentes Nuxt UI */
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 const UInput = resolveComponent("UInput");
@@ -14,9 +12,12 @@ const UModal = resolveComponent("UModal");
 const UProgress = resolveComponent("UProgress");
 const UTable = resolveComponent("UTable");
 
-/* --------------------------------------------------
-   Toast helper
--------------------------------------------------- */
+/* Emit para eventos */
+const emit = defineEmits<{
+  (e: "edit", row: any): void;
+}>();
+
+/* Toast helper */
 const toast = useToast();
 function showToast({
   title,
@@ -27,17 +28,10 @@ function showToast({
   description?: string;
   color?: "primary" | "success" | "error" | "warning" | "info";
 }) {
-  toast.add({
-    title,
-    description,
-    color,
-    // position: "top-center",
-  });
+  toast.add({ title, description, color });
 }
 
-/* --------------------------------------------------
-   Tipos
--------------------------------------------------- */
+/* Props y tipos */
 interface Column {
   key: string;
   label: string;
@@ -59,38 +53,23 @@ interface Props {
   showSearch?: boolean;
   perPage?: number;
 }
-
-/* --------------------------------------------------
-   Props y API
--------------------------------------------------- */
 const props = defineProps<Props>();
 const { $api } = useNuxtApp();
 
-/* --------------------------------------------------
-   State
--------------------------------------------------- */
+/* State */
 const data = ref<any[]>([]);
 const page = ref(1);
 const totalPages = ref(1);
 const searchQuery = ref("");
 const loading = ref(false);
 
-const modalVisible = ref(false);
-const modalTitle = ref("Nuevo registro");
-const form = ref<Record<string, any>>({});
-
 const confirmVisible = ref(false);
 const confirmMessage = ref("");
 const confirmAction = ref<null | (() => Promise<void>)>(null);
 
-/* --------------------------------------------------
-   Columnas dinámicas
--------------------------------------------------- */
+/* Columnas dinámicas */
 const columns: TableColumn<any>[] = [
-  ...props.columns.map((col) => ({
-    accessorKey: col.key,
-    header: col.label,
-  })),
+  ...props.columns.map((col) => ({ accessorKey: col.key, header: col.label })),
   {
     id: "actions",
     header: "Acciones",
@@ -115,9 +94,7 @@ const columns: TableColumn<any>[] = [
   },
 ];
 
-/* --------------------------------------------------
-   Fetch data
--------------------------------------------------- */
+/* Fetch data */
 async function fetchData() {
   loading.value = true;
   try {
@@ -131,16 +108,17 @@ async function fetchData() {
     data.value = res.data.data.data;
     page.value = res.data.data.current_page;
     totalPages.value = res.data.data.last_page;
-  } catch (err) {
+  } catch {
     showToast({ title: "Error al cargar datos", color: "error" });
   } finally {
     loading.value = false;
   }
 }
 
-/* --------------------------------------------------
-   Paginación
--------------------------------------------------- */
+/* Exponer fetchData al padre */
+defineExpose({ fetchData });
+
+/* Paginación */
 function prevPage() {
   if (page.value > 1) {
     page.value--;
@@ -154,63 +132,13 @@ function nextPage() {
   }
 }
 
-/* --------------------------------------------------
-   Modal crear / editar
--------------------------------------------------- */
-function openModal(item: any = null) {
-  if (item) {
-    modalTitle.value = "Editar registro";
-    form.value = { ...item };
-  } else {
-    modalTitle.value = "Nuevo registro";
-    form.value = Object.fromEntries(props.formFields.map((f) => [f.key, ""]));
-  }
-  modalVisible.value = true;
-}
-
-/* --------------------------------------------------
-   Submit form
--------------------------------------------------- */
-async function submitForm() {
-  loading.value = true;
-  try {
-    let res;
-    if (form.value[props.keyField]) {
-      res = await $api.put(
-        `${props.apiUrl}/${form.value[props.keyField]}`,
-        form.value
-      );
-      showToast({
-        title: "Actualizado",
-        description: res.data.message || "Actualizado correctamente",
-        color: "success",
-      });
-    } else {
-      res = await $api.post(props.apiUrl, form.value);
-      showToast({
-        title: "Creado",
-        description: res.data.message || "Creado correctamente",
-        color: "success",
-      });
-    }
-    modalVisible.value = false;
-    fetchData();
-  } catch (err: any) {
-    showToast({
-      title: "Error",
-      description:
-        err?.response?.data?.message || err?.message || "Error al guardar",
-      color: "error",
-    });
-  } finally {
-    loading.value = false;
-  }
-}
-
-/* --------------------------------------------------
-   Confirmación acciones
--------------------------------------------------- */
+/* Acciones por fila */
 async function handleAction(action: Action, row: any) {
+  if (action.label.toLowerCase() === "editar") {
+    emit("edit", row);
+    return;
+  }
+
   confirmMessage.value = `¿Seguro que deseas ejecutar "${action.label}"?`;
   confirmVisible.value = true;
   confirmAction.value = async () => {
@@ -222,7 +150,7 @@ async function handleAction(action: Action, row: any) {
         description: "Acción realizada correctamente.",
         color: "success",
       });
-      fetchData();
+      fetchData(); // 🔹 refresca los datos automáticamente
     } catch (err: any) {
       showToast({
         title: "Error",
@@ -237,15 +165,12 @@ async function handleAction(action: Action, row: any) {
 }
 
 fetchData();
-
 export type { Column, Field, Action };
 </script>
 
 <template>
   <div class="p-4 relative">
-    <!-- BUSCADOR + NUEVO -->
     <div class="flex justify-between items-center mb-4">
-      <!-- Grupo de búsqueda a la izquierda -->
       <div class="flex items-center gap-2">
         <UInput
           v-if="props.showSearch !== false"
@@ -256,15 +181,11 @@ export type { Column, Field, Action };
         />
         <UButton color="primary" icon="i-lucide-search" @click="fetchData" />
       </div>
-
-      <!-- Botón Nuevo registro a la derecha -->
-      <UButton color="primary" label="Nuevo" @click="openModal()" />
+      <UButton color="primary" label="Nuevo" @click="$emit('edit', null)" />
     </div>
 
-    <!-- TABLA -->
     <UTable :data="data" :columns="columns" sticky />
 
-    <!-- PAGINACIÓN -->
     <div class="flex justify-end gap-2 mt-4">
       <UButton label="Anterior" @click="prevPage" :disabled="page === 1" />
       <span>{{ page }} / {{ totalPages }}</span>
@@ -275,39 +196,15 @@ export type { Column, Field, Action };
       />
     </div>
 
-    <!-- MODAL FORM -->
-    <UModal v-model:open="modalVisible" size="lg">
-      <template #header>
-        <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
-      </template>
-      <template #body>
-        <div class="flex flex-col gap-4 p-4">
-          <UInput
-            v-for="f in props.formFields"
-            :key="f.key"
-            v-model="form[f.key]"
-            :placeholder="f.label"
-          />
-        </div>
-      </template>
-      <template #footer>
-        <UButton
-          label="Cancelar"
-          variant="outline"
-          @click="modalVisible = false"
-        />
-        <UButton label="Guardar" color="primary" @click="submitForm" />
-      </template>
-    </UModal>
-
-    <!-- MODAL CONFIRMACIÓN -->
     <UModal v-model:open="confirmVisible" size="sm">
-      <template #header>
-        <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
-      </template>
-      <template #body>
-        <p class="text-gray-700">{{ confirmMessage }}</p>
-      </template>
+      <template #header
+        ><h3 class="text-lg font-semibold text-red-600">
+          Confirmación
+        </h3></template
+      >
+      <template #body
+        ><p class="text-gray-700">{{ confirmMessage }}</p></template
+      >
       <template #footer>
         <UButton
           label="Cancelar"
@@ -322,7 +219,6 @@ export type { Column, Field, Action };
       </template>
     </UModal>
 
-    <!-- LOADING OVERLAY -->
     <div
       v-if="loading"
       class="absolute inset-0 flex items-center justify-center bg-white/50 z-50"
