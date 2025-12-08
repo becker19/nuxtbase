@@ -125,7 +125,6 @@ export const useAuth = () => {
     try {
       const response = await $api.get("/me");
       const data = response.data.data;
-
       // Guardar como string
       if (import.meta.client) {
         localStorage.setItem("me", JSON.stringify(data.me));

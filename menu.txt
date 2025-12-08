@@ -3,73 +3,43 @@ import { ref, onMounted, watch } from "vue";
 import draggable from "vuedraggable";
 import { GripVertical } from "lucide-vue-next";
 
+// Tipado del menú
 interface MenuItem {
-  id: number;
   label: string;
   icon?: string;
   route?: string;
-  order: number;
-  parent_id: number | null;
   defaultOpen?: boolean;
   children?: MenuItem[];
 }
 
+// Estado del menú
 const menu = ref<MenuItem[]>([]);
 
-// Función recursiva para ordenar por 'order'
-function sortMenu(items: MenuItem[]): MenuItem[] {
-  items.sort((a, b) => a.order - b.order);
-  items.forEach((item) => {
-    if (item.children?.length) {
-      item.children = sortMenu(item.children);
-    }
-  });
-  return items;
+// Modal y formulario
+const modalVisible = ref(false);
+const modalTitle = ref("Nuevo Menú");
+
+interface FormData {
+  label: string;
+  icon: string;
+  route: string;
 }
 
-// Reconstruye jerarquía solo si tu JSON viene plano
-function buildHierarchy(items: MenuItem[]): MenuItem[] {
-  const map = new Map<number, MenuItem>();
-  const roots: MenuItem[] = [];
+const form = ref<FormData>({
+  label: "",
+  icon: "",
+  route: "",
+});
 
-  items.forEach((item) => {
-    item.children = [];
-    map.set(item.id, item);
-  });
-
-  items.forEach((item) => {
-    if (item.parent_id) {
-      const parent = map.get(item.parent_id);
-      if (parent) parent.children!.push(item);
-    } else {
-      roots.push(item);
-    }
-  });
-
-  return sortMenu(roots);
-}
-
-// Recalcula el 'order' recursivamente según la posición en el array
-function updateOrder(items: MenuItem[]) {
-  items.forEach((item, index) => {
-    item.order = index + 1;
-    if (item.children?.length) updateOrder(item.children);
-  });
-}
-
-// Menú inicial de ejemplo
-const initialMenuData: MenuItem[] = [];
-
+// Cargar menú desde localStorage al inicio
 onMounted(() => {
   const savedMenu = localStorage.getItem("menu");
   if (savedMenu) {
     menu.value = JSON.parse(savedMenu);
-  } else {
-    menu.value = buildHierarchy(initialMenuData);
   }
 });
 
-// Guardado automático
+// Guardado automático en localStorage
 watch(
   menu,
   (newMenu) => {
@@ -77,26 +47,45 @@ watch(
   },
   { deep: true }
 );
+
+// Abrir modal para nuevo menú
+function openNewMenuModal() {
+  modalTitle.value = "Nuevo Menú";
+  form.value = { label: "", icon: "", route: "" };
+  modalVisible.value = true;
+}
+
+// Guardar nuevo menú
+function submitForm() {
+  if (!form.value.label.trim()) {
+    alert("La etiqueta del menú es obligatoria");
+    return;
+  }
+  menu.value.push({ ...form.value });
+  modalVisible.value = false;
+}
 </script>
 
 <template>
   <div class="p-4">
+    <!-- Botón para abrir modal -->
+    <div class="flex justify-end mb-4">
+      <UButton color="primary" label="Nuevo Menu" @click="openNewMenuModal" />
+    </div>
+
     <!-- Drag & Drop recursivo -->
     <draggable
       v-model="menu"
       item-key="label"
       handle=".drag-handle"
       class="space-y-1"
-      @end="() => updateOrder(menu)"
     >
       <template #item="{ element }">
         <div>
           <UCard class="p-2 w-full">
             <div class="flex items-center gap-2">
               <GripVertical class="w-5 h-5 cursor-move drag-handle" />
-              <span class="flex-1"
-                >{{ element.order }} - {{ element.label }}</span
-              >
+              <span class="flex-1">{{ element.label }}</span>
             </div>
           </UCard>
 
@@ -111,21 +100,18 @@ watch(
               item-key="label"
               handle=".drag-handle"
               class="space-y-1"
-              @end="() => updateOrder(element.children)"
             >
               <template #item="{ element: child }">
                 <div>
                   <UCard class="p-2 w-full">
                     <div class="flex items-center gap-2">
                       <GripVertical class="w-5 h-5 cursor-move drag-handle" />
-                      <span class="flex-1"
-                        >{{ child.order }} - {{ child.label }}</span
-                      >
+                      <span class="flex-1">{{ child.label }}</span>
                     </div>
                   </UCard>
 
                   <!-- Nietos -->
-                  <!-- <div
+                  <div
                     v-if="child.children?.length"
                     :style="{ marginLeft: '20px' }"
                     class="mt-1"
@@ -147,7 +133,7 @@ watch(
                         </UCard>
                       </template>
                     </draggable>
-                  </div> -->
+                  </div>
                 </div>
               </template>
             </draggable>
@@ -155,6 +141,30 @@ watch(
         </div>
       </template>
     </draggable>
+
+    <!-- Modal para crear nuevo menú -->
+    <UModal v-model:open="modalVisible" size="lg">
+      <template #header>
+        <h3 class="text-lg font-semibold">{{ modalTitle }}</h3>
+      </template>
+
+      <template #body>
+        <div class="flex flex-col gap-4 p-4">
+          <UInput v-model="form.label" placeholder="Etiqueta del menú" />
+          <UInput v-model="form.icon" placeholder="Icono (opcional)" />
+          <UInput v-model="form.route" placeholder="Ruta (opcional)" />
+        </div>
+      </template>
+
+      <template #footer class="flex justify-end gap-2">
+        <UButton
+          label="Cancelar"
+          variant="outline"
+          @click="modalVisible = false"
+        />
+        <UButton label="Guardar" color="primary" @click="submitForm" />
+      </template>
+    </UModal>
   </div>
 </template>
 
