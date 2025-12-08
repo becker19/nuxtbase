@@ -13,7 +13,7 @@ interface LoginResponse {
 
 export const useAuth = () => {
   const router = useRouter();
-  const token = ref<string | null>(null); // Token global reactivo
+  const token = ref<string | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -85,7 +85,8 @@ export const useAuth = () => {
 
       // Guardar como string
       if (import.meta.client) {
-        localStorage.setItem("me", JSON.stringify(data));
+        localStorage.setItem("me", JSON.stringify(data.me));
+        localStorage.setItem("menu", JSON.stringify(data.menu));
       }
     } catch (err) {
       console.error("Error al obtener /me:", err);
@@ -100,79 +101,3 @@ export const useAuth = () => {
     logout,
   };
 };
-
-// // /composables/useAuth.ts
-// import { ref } from "vue";
-
-// interface LoginResponse {
-//   success: boolean;
-//   message: string;
-//   data: {
-//     access_token: string;
-//     token_type: string;
-//   };
-// }
-
-// export const useAuth = () => {
-//   const token = ref<string | null>(
-//     typeof window !== "undefined" ? localStorage.getItem("token") : null
-//   );
-//   const error = ref<string | null>(null);
-//   const loading = ref(false);
-
-//   const { $api } = useNuxtApp();
-
-//   const login = async (email: string, password: string) => {
-//     loading.value = true;
-//     error.value = null;
-
-//     try {
-//       const response = await $api.post<LoginResponse>("/login", {
-//         email,
-//         password,
-//       });
-//       const data = response.data;
-
-//       if (data.success) {
-//         token.value = data.data.access_token;
-
-//         if (typeof window !== "undefined") {
-//           localStorage.setItem("token", data.data.access_token);
-//         }
-
-//         return navigateTo("/dashboard");
-//       } else {
-//         error.value = data.message || "Error al iniciar sesión";
-//       }
-//     } catch (err: any) {
-//       error.value = err.response?.data?.message || "Error al iniciar sesión";
-//     } finally {
-//       loading.value = false;
-//     }
-//   };
-
-//   // const logout = async () => {
-//   //   token.value = null;
-
-//   //   try {
-//   //     const response = await $api.post<LoginResponse>("/logout");
-//   //     console.log("🚀 ~ logout ~ response:", response);
-//   //   } catch (error) {
-//   //     console.log(error);
-//   //   }
-
-//   //   // if (typeof window !== "undefined") {
-//   //   //   localStorage.removeItem("token");
-//   //   // }
-
-//   //   // return navigateTo("/login");
-//   // };
-
-//   return {
-//     token,
-//     error,
-//     loading,
-//     login,
-//     logout,
-//   };
-// };

@@ -16,9 +16,6 @@ const fields = ref<AuthFormField[]>([
   { name: "password", type: "password", label: "Password" },
 ]);
 
-// const onSubmit = async (formData: Record<string, any>) => {
-//   await login(formData.data.email, formData.data.password);
-// };
 const onSubmit = async (formData: { data: LoginForm }) => {
   await login(formData.data.email, formData.data.password);
 };

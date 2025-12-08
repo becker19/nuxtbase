@@ -3,6 +3,7 @@ import { ref } from "vue";
 import type { NavigationMenuItem, TabsItem } from "@nuxt/ui";
 import UserMenu from "@/components/UserMenu.vue";
 import DarkModeButton from "@/components/DarkModeButton.vue";
+import { useSetting } from "@/composables/services/useSetting";
 
 const isSidebarCollapsed = ref(false);
 
@@ -37,6 +38,38 @@ const sidebarItems: NavigationMenuItem[][] = [
     },
   ],
 ];
+const menu = ref<NavigationMenuItem[]>([]);
+
+onMounted(() => {
+  loadMenuFromLocalStorage();
+});
+
+function loadMenuFromLocalStorage() {
+  if (import.meta.client) {
+    const menuRaw = localStorage.getItem("menu");
+    if (!menuRaw) return;
+
+    try {
+      const menuParsed = JSON.parse(menuRaw);
+
+      // Transformar al formato Nuxt UI
+      menu.value = menuParsed.map((item: any) => ({
+        label: item.label,
+        icon: item.icon ?? "i-lucide-circle",
+        to: item.route ?? null,
+        children:
+          item.children?.map((child: any) => ({
+            label: child.label,
+            icon: child.icon ?? "i-lucide-circle",
+            to: child.route ?? null,
+          })) ?? [],
+      }));
+      console.log("🚀 ~ loadMenuFromLocalStorage ~ menu.value:", menu.value);
+    } catch (e) {
+      console.error("Error parseando menú:", e);
+    }
+  }
+}
 
 const tabsItems: TabsItem[] = [
   { label: "All", value: "all" },
@@ -68,16 +101,11 @@ const toggleSidebar = () => {
       </template>
 
       <template #default="{ collapsed }">
+        <!-- ✔ MENÚ DINÁMICO -->
         <UNavigationMenu
           :collapsed="collapsed"
-          :items="sidebarItems[0]"
+          :items="menu"
           orientation="vertical"
-        />
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="sidebarItems[1]"
-          orientation="vertical"
-          class="mt-auto"
         />
       </template>
 
