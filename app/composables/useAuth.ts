@@ -26,6 +26,44 @@ export const useAuth = () => {
   const { $api } = useNuxtApp();
 
   // Función de login
+  // const login = async (email: string, password: string) => {
+  //   loading.value = true;
+  //   error.value = null;
+
+  //   try {
+  //     const response = await $api.post<LoginResponse>("/login", {
+  //       email,
+  //       password,
+  //     });
+
+  //     const data = response.data;
+
+  //     if (data.success) {
+  //       token.value = data.data.access_token;
+  //       me();
+
+  //       // Guardar token en localStorage
+  //       if (import.meta.client && token.value) {
+  //         localStorage.setItem("token", token.value);
+  //       }
+
+  //       const menuGet = localStorage.getItem("menu");
+  //       const meGet = localStorage.getItem("me");
+
+  //       if (menuGet?.trim() && meGet?.trim()) {
+  //         router.push("/dashboard");
+  //       }
+  //     } else {
+  //       error.value = data.message || "Error al iniciar sesión";
+  //     }
+  //   } catch (err: any) {
+  //     error.value = err.response?.data?.message || "Error al iniciar sesión";
+  //   } finally {
+  //     loading.value = false;
+  //   }
+  // };
+
+  // Función de login mejorada
   const login = async (email: string, password: string) => {
     loading.value = true;
     error.value = null;
@@ -35,20 +73,25 @@ export const useAuth = () => {
         email,
         password,
       });
-
       const data = response.data;
 
       if (data.success) {
         token.value = data.data.access_token;
-        me();
 
         // Guardar token en localStorage
         if (import.meta.client && token.value) {
           localStorage.setItem("token", token.value);
         }
 
-        // Redirigir al dashboard
-        router.push("/dashboard");
+        // Esperar a que me() termine antes de verificar el storage
+        await me();
+
+        const menuGet = localStorage.getItem("menu");
+        const meGet = localStorage.getItem("me");
+
+        if (menuGet?.trim() && meGet?.trim()) {
+          router.push("/dashboard");
+        }
       } else {
         error.value = data.message || "Error al iniciar sesión";
       }
