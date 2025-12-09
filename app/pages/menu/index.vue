@@ -73,7 +73,7 @@ function buildHierarchy(items: MenuItem[]): MenuItem[] {
   });
 
   items.forEach((item) => {
-    if (item.parent_id) {
+    if (item.parent_id !== null) {
       const parent = map.get(item.parent_id);
       if (parent) parent.children!.push(item);
     } else {
@@ -102,15 +102,20 @@ function flattenMenu(items: MenuItem[]): MenuItem[] {
 // ----------------------
 // Modal: Crear / Editar
 // ----------------------
-function openCreateModal(parentId: number | null = null) {
+function openCreateModal(parentId?: number): void {
   modalTitle.value = "Nuevo Registro";
   editingItem.value = null;
-  menuFormData.value = { label: "", icon: "", route: "", parent_id: parentId };
+  menuFormData.value = {
+    label: "",
+    icon: "",
+    route: "",
+    parent_id: parentId ?? null,
+  };
   updateParentOptions();
   modalVisible.value = true;
 }
 
-function openEditModal(item: MenuItem) {
+function openEditModal(item: MenuItem): void {
   modalTitle.value = "Editar elemento del menú";
   editingItem.value = item;
   menuFormData.value = { ...item };
@@ -132,12 +137,10 @@ function updateParentOptions(excludeId?: number) {
   }
 }
 
-function saveMenuItem(data: any) {
+function saveMenuItem(data: any): void {
   if (editingItem.value) {
-    // Editar
     Object.assign(editingItem.value, data);
   } else {
-    // Crear
     const newId = Math.max(0, ...flattenMenu(menu.value).map((i) => i.id)) + 1;
     menu.value.push({
       ...data,
@@ -173,13 +176,12 @@ watch(
 
 <template>
   <div class="p-4">
-    <UButton
-      label="Nuevo Registro"
-      color="primary"
-      class="mb-4"
-      @click="() => openCreateModal(null)"
-    />
+    <!-- Botón crear raíz -->
+    <div class="flex justify-end mb-4">
+      <UButton label="Agregar" color="primary" @click="openCreateModal()" />
+    </div>
 
+    <!-- Lista draggable -->
     <draggable
       v-model="menu"
       item-key="id"
@@ -189,16 +191,13 @@ watch(
     >
       <template #item="{ element }">
         <div>
-          <!-- Nodo principal -->
           <UCard class="p-2 w-full">
             <div class="flex w-full items-center">
-              <!-- Contenido principal a la izquierda -->
               <div class="flex items-center gap-2 grow">
                 <GripVertical class="w-5 h-5 cursor-move drag-handle" />
                 <span>{{ element.order }} - {{ element.label }}</span>
               </div>
 
-              <!-- Botones a la derecha -->
               <div class="flex gap-2">
                 <UButton
                   size="sm"
@@ -210,6 +209,13 @@ watch(
                   size="sm"
                   variant="outline"
                   label="Agregar hijo"
+                  @click="() => openCreateModal(element.id)"
+                />
+                <UButton
+                  color="error"
+                  size="sm"
+                  variant="outline"
+                  label="Eliminar"
                   @click="() => openCreateModal(element.id)"
                 />
               </div>
@@ -237,6 +243,13 @@ watch(
                         size="sm"
                         variant="outline"
                         label="Editar"
+                        @click="() => openEditModal(child)"
+                      />
+                      <UButton
+                        color="error"
+                        size="sm"
+                        variant="outline"
+                        label="Eliminar"
                         @click="() => openEditModal(child)"
                       />
                     </div>

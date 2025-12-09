@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from "vue";
 
-// ----------------------
-// Tipos
-// ----------------------
 interface Field {
   key: string;
   label: string;
@@ -14,9 +11,6 @@ interface Field {
   };
 }
 
-// ----------------------
-// Props
-// ----------------------
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: "Formulario" },
@@ -29,11 +23,14 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "submit"]);
 
-// ----------------------
-// Estado
-// ----------------------
 const isOpen = ref(props.modelValue);
-const formData = reactive({ ...props.initialData });
+
+// Creamos formData asegurando que todas las keys existen
+const formData = reactive<Record<string, any>>({});
+props.fields.forEach((f) => {
+  formData[f.key] =
+    props.initialData[f.key] ?? (f.type === "select" ? null : "");
+});
 
 // Sincronización con modelValue
 watch(
@@ -41,14 +38,17 @@ watch(
   (val) => (isOpen.value = val)
 );
 watch(isOpen, (val) => emit("update:modelValue", val));
+
+// Sincronización con initialData
 watch(
   () => props.initialData,
-  (val) => Object.assign(formData, val)
+  (val) => {
+    props.fields.forEach((f) => {
+      formData[f.key] = val[f.key] ?? formData[f.key];
+    });
+  }
 );
 
-// ----------------------
-// Funciones
-// ----------------------
 const close = (): void => {
   isOpen.value = false;
 };
@@ -69,24 +69,34 @@ const submit = (): void => {
     <!-- Body -->
     <template #body>
       <div class="flex flex-col gap-4 p-4">
-        <component
-          v-for="field in fields"
-          :key="field.key"
-          :is="
-            field.type === 'input'
-              ? 'UInput'
-              : field.type === 'textarea'
-              ? 'UTextarea'
-              : field.type === 'select'
-              ? 'USelect'
-              : field.type === 'date'
-              ? 'UDatepicker'
-              : 'UInput'
-          "
-          v-model="formData[field.key]"
-          :placeholder="field.label"
-          v-bind="field.props"
-        />
+        <div v-for="field in fields" :key="field.key" class="flex flex-col">
+          <!-- Renderizamos label explícitamente -->
+          <label class="mb-1 font-medium text-gray-700">{{
+            field.label
+          }}</label>
+
+          <UInput
+            v-if="field.type === 'input'"
+            v-model="formData[field.key]"
+            v-bind="field.props"
+          />
+          <UTextarea
+            v-else-if="field.type === 'textarea'"
+            v-model="formData[field.key]"
+            v-bind="field.props"
+          />
+          <USelect
+            v-else-if="field.type === 'select'"
+            v-model="formData[field.key]"
+            :options="field.props?.options || []"
+            v-bind="field.props"
+          />
+          <UDatepicker
+            v-else-if="field.type === 'date'"
+            v-model="formData[field.key]"
+            v-bind="field.props"
+          />
+        </div>
       </div>
     </template>
 
