@@ -71,9 +71,7 @@ const submit = (): void => {
       <div class="flex flex-col gap-4 p-4">
         <div v-for="field in fields" :key="field.key" class="flex flex-col">
           <!-- Renderizamos label explícitamente -->
-          <label class="mb-1 font-medium text-gray-700">{{
-            field.label
-          }}</label>
+          <label class="mb-1 font-medium">{{ field.label }}</label>
 
           <UInput
             v-if="field.type === 'input'"

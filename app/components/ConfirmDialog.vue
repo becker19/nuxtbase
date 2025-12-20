@@ -1,25 +1,20 @@
-<template>
-  <UModal v-model="isOpen">
-    <UCard>
-      <div class="flex flex-col gap-4">
-        <h3 class="text-lg font-semibold">Confirmación</h3>
-
-        <p>{{ message }}</p>
-
-        <div class="flex justify-end gap-2 mt-4">
-          <UButton color="neutral" variant="soft" @click="cancel">
-            Cancelar
-          </UButton>
-
-          <UButton color="error" @click="confirm"> Confirmar </UButton>
-        </div>
-      </div>
-    </UCard>
-  </UModal>
-</template>
-
 <script setup lang="ts">
-import { useConfirm } from "@/composables/useConfirm";
-
 const { isOpen, message, confirm, cancel } = useConfirm();
 </script>
+
+<template>
+  <UModal v-model:open="isOpen" size="sm">
+    <template #header>
+      <h3 class="text-lg font-semibold text-red-600">Confirmación</h3>
+    </template>
+
+    <template #body>
+      <p class="text">{{ message }}</p>
+    </template>
+
+    <template #footer>
+      <UButton label="Cancelar" variant="outline" @click="cancel" />
+      <UButton label="Confirmar" color="success" @click="confirm" />
+    </template>
+  </UModal>
+</template>

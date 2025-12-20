@@ -1,31 +1,30 @@
-// composables/useConfirm.ts
 import { ref } from "vue";
 
 const isOpen = ref(false);
 const message = ref("");
-let confirmCallback: null | (() => void) = null;
+let callback: (() => void) | null = null;
 
 export function useConfirm() {
-  const ask = (callback: () => void, msg: string = "¿Seguro?") => {
+  function ask(cb: () => void, msg = "¿Confirmar acción?") {
     message.value = msg;
-    confirmCallback = callback;
+    callback = cb;
     isOpen.value = true;
-  };
+  }
 
-  const confirm = () => {
-    if (confirmCallback) confirmCallback();
+  function confirm() {
+    callback?.();
+    close();
+  }
+
+  function cancel() {
+    close();
+  }
+
+  function close() {
     isOpen.value = false;
-  };
+    message.value = "";
+    callback = null;
+  }
 
-  const cancel = () => {
-    isOpen.value = false;
-  };
-
-  return {
-    isOpen,
-    message,
-    ask,
-    confirm,
-    cancel,
-  };
+  return { isOpen, message, ask, confirm, cancel };
 }

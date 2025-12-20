@@ -4,6 +4,8 @@ import draggable from "vuedraggable";
 import { GripVertical } from "lucide-vue-next";
 import DynamicFormModal from "~/components/DynamicFormModal.vue";
 
+const { ask } = useConfirm();
+const toast = useToast();
 // ----------------------
 // Tipos
 // ----------------------
@@ -123,6 +125,40 @@ function openEditModal(item: MenuItem): void {
   modalVisible.value = true;
 }
 
+function onDeleteMenu(item: MenuItem) {
+  console.log("🚀 ~ onDeleteMenu ~ item:", item);
+  ask(() => {
+    deleteMenu(item);
+  }, "¿Deseas eliminar este Menú?");
+}
+
+function onDeleteSubMenu(item: MenuItem) {
+  ask(() => {
+    deletesubMenu(item);
+  }, "¿Deseas eliminar este Sub-Menú?");
+}
+
+function deleteMenu(item: MenuItem) {
+  menu.value = menu.value.filter((menu) => menu.id !== item.id);
+}
+
+function deletesubMenu(item: MenuItem) {
+  menu.value = menu.value.map((x) => {
+    if (x.id !== item.parent_id) return x;
+
+    return {
+      ...x,
+      children: x.children?.filter((m) => m.id !== item.id),
+    };
+  });
+
+  toast.add({
+    title: "Éxito",
+    description: `Se Eliminó correctamente `,
+    color: "success",
+  });
+}
+
 function updateParentOptions(excludeId?: number) {
   const options: { label: string; value: number | null }[] = [
     { label: "Ninguno", value: null },
@@ -208,15 +244,22 @@ watch(
                 <UButton
                   size="sm"
                   variant="outline"
-                  label="Agregar hijo"
+                  label="Agregar SubMenú"
                   @click="() => openCreateModal(element.id)"
                 />
-                <UButton
+                <!-- <UButton
                   color="error"
                   size="sm"
                   variant="outline"
                   label="Eliminar"
                   @click="() => openCreateModal(element.id)"
+                /> -->
+                <UButton
+                  color="error"
+                  size="sm"
+                  variant="outline"
+                  label="Eliminar"
+                  @click="() => onDeleteMenu(element)"
                 />
               </div>
             </div>
@@ -239,6 +282,12 @@ watch(
                       <span>{{ child.order }} - {{ child.label }}</span>
                     </div>
                     <div class="flex gap-2">
+                      <!-- <UButton
+                        size="sm"
+                        variant="outline"
+                        label="Editar"
+                        @click="() => openEditModal(child)"
+                      /> -->
                       <UButton
                         size="sm"
                         variant="outline"
@@ -250,7 +299,7 @@ watch(
                         size="sm"
                         variant="outline"
                         label="Eliminar"
-                        @click="() => openEditModal(child)"
+                        @click="() => onDeleteSubMenu(child)"
                       />
                     </div>
                   </div>
