@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from "vue";
 import draggable from "vuedraggable";
 import { GripVertical } from "lucide-vue-next";
-import DynamicFormModal from "~/components/DynamicFormModal.vue";
+import DynamicFormModal from "@/components/DynamicFormModal.vue";
 
 const { ask } = useConfirm();
 const toast = useToast();
@@ -109,7 +109,7 @@ function openCreateModal(parentId?: number): void {
   editingItem.value = null;
   menuFormData.value = {
     label: "",
-    icon: "",
+    icon: "i-lucide-",
     route: "",
     parent_id: parentId ?? null,
   };
@@ -190,6 +190,10 @@ function saveMenuItem(data: any): void {
   modalVisible.value = false;
 }
 
+function openUrlIcons() {
+  window.open("https://lucide.dev/icons/", "_blank");
+}
+
 // ----------------------
 // Inicialización
 // ----------------------
@@ -213,8 +217,19 @@ watch(
 <template>
   <div class="p-4">
     <!-- Botón crear raíz -->
-    <div class="flex justify-end mb-4">
-      <UButton label="Agregar" color="primary" @click="openCreateModal()" />
+    <div class="flex justify-end gap-2 mb-4">
+      <UButton
+        label="Iconos"
+        color="info"
+        icon="i-lucide-toolbox"
+        @click="openUrlIcons()"
+      />
+      <UButton
+        label="Agregar"
+        color="primary"
+        icon="i-lucide-plus"
+        @click="openCreateModal()"
+      />
     </div>
 
     <!-- Lista draggable -->
@@ -235,32 +250,35 @@ watch(
               </div>
 
               <div class="flex gap-2">
-                <UButton
-                  size="sm"
-                  variant="outline"
-                  label="Editar"
-                  @click="() => openEditModal(element)"
-                />
-                <UButton
-                  size="sm"
-                  variant="outline"
-                  label="Agregar SubMenú"
-                  @click="() => openCreateModal(element.id)"
-                />
-                <!-- <UButton
-                  color="error"
-                  size="sm"
-                  variant="outline"
-                  label="Eliminar"
-                  @click="() => openCreateModal(element.id)"
-                /> -->
-                <UButton
-                  color="error"
-                  size="sm"
-                  variant="outline"
-                  label="Eliminar"
-                  @click="() => onDeleteMenu(element)"
-                />
+                <UTooltip text="Agregar SubMenú">
+                  <UButton
+                    color="info"
+                    size="sm"
+                    variant="outline"
+                    icon="i-lucide-layers-plus"
+                    @click="() => openCreateModal(element.id)"
+                  />
+                </UTooltip>
+
+                <UTooltip text="Editar">
+                  <UButton
+                    color="warning"
+                    size="sm"
+                    variant="outline"
+                    icon="i-lucide-pencil"
+                    @click="() => openEditModal(element)"
+                  />
+                </UTooltip>
+
+                <UTooltip text="Eliminar Menú">
+                  <UButton
+                    color="error"
+                    size="sm"
+                    variant="outline"
+                    icon="i-lucide-trash"
+                    @click="() => onDeleteMenu(element)"
+                  />
+                </UTooltip>
               </div>
             </div>
           </UCard>
@@ -282,25 +300,25 @@ watch(
                       <span>{{ child.order }} - {{ child.label }}</span>
                     </div>
                     <div class="flex gap-2">
-                      <!-- <UButton
-                        size="sm"
-                        variant="outline"
-                        label="Editar"
-                        @click="() => openEditModal(child)"
-                      /> -->
-                      <UButton
-                        size="sm"
-                        variant="outline"
-                        label="Editar"
-                        @click="() => openEditModal(child)"
-                      />
-                      <UButton
-                        color="error"
-                        size="sm"
-                        variant="outline"
-                        label="Eliminar"
-                        @click="() => onDeleteSubMenu(child)"
-                      />
+                      <UTooltip text="Editar">
+                        <UButton
+                          color="warning"
+                          size="sm"
+                          variant="outline"
+                          icon="i-lucide-pencil"
+                          @click="() => openEditModal(child)"
+                        />
+                      </UTooltip>
+
+                      <UTooltip text="Eliminar SubMenú">
+                        <UButton
+                          color="error"
+                          size="sm"
+                          variant="outline"
+                          icon="i-lucide-trash"
+                          @click="onDeleteSubMenu(child)"
+                        />
+                      </UTooltip>
                     </div>
                   </div>
                 </UCard>
