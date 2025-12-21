@@ -1,0 +1,6 @@
+
+
+
+Posible error en MENU
+npm uninstall vuedraggable
+npm install vuedraggable@next

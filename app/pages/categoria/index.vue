@@ -3,7 +3,7 @@ import DataTable2 from "@/components/DynamicTable2.vue";
 import type { Column, Field, Action } from "@/components/DynamicTable2.vue";
 import { useNuxtApp } from "#app";
 import { useToast } from "#imports";
-import { useConfirm } from "~/composables/useConfirm";
+import { useConfirm } from "@/composables/useConfirm";
 
 const { ask } = useConfirm();
 const { $api } = useNuxtApp();

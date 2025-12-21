@@ -89,7 +89,7 @@ const submit = (): void => {
             :options="field.props?.options || []"
             v-bind="field.props"
           />
-          <UDatepicker
+          <UInputDate
             v-else-if="field.type === 'date'"
             v-model="formData[field.key]"
             v-bind="field.props"
