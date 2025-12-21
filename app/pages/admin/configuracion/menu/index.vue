@@ -109,7 +109,8 @@ function openCreateModal(parentId?: number): void {
   editingItem.value = null;
   menuFormData.value = {
     label: "",
-    icon: "i-lucide-",
+    // icon: "i-lucide-",
+    icon: "",
     route: "",
     parent_id: parentId ?? null,
   };
