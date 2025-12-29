@@ -1,35 +1,69 @@
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-
-interface SettingResponse {
-  success: boolean;
-  message: string;
-  data: any;
-}
-
 export const useSetting = () => {
-  const router = useRouter();
-  const token = ref<string | null>(null);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
+  // 🌍 Estado global
+  const settingApp = useState<any>("settingApp", () => null);
+  const loading = useState<boolean>("settingLoading", () => false);
+  const error = useState<string | null>("settingError", () => null);
 
-  // Inicializar token desde localStorage en cliente
-  if (import.meta.client) {
-    const stored = localStorage.getItem("token");
-    if (stored) token.value = stored;
-  }
+  const nuxtApp = useNuxtApp();
 
-  const { $api } = useNuxtApp();
+  const fetchSettingApp = async () => {
+    // Evitar llamadas duplicadas
+    if (settingApp.value) return;
 
-  const menuGet = async () => {
+    loading.value = true;
+    error.value = null;
+
     try {
-      await $api.get("menu");
+      const response = await nuxtApp.$api.get("/app-setting");
+      const data = response.data?.data;
+      console.log("🚀 ~ fetchSettingApp ~ data:", data);
+
+      if (Array.isArray(data) && data.length > 0) {
+        settingApp.value = data[0];
+      }
     } catch (err) {
-      console.error("Error al cerrar sesión:", err);
+      error.value = "Error al obtener la configuración";
+      console.error("fetchSettingApp:", err);
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const updateSetting = async (id: any, payload: any) => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await nuxtApp.$api.put(`/setting/${id}`, payload);
+
+      // Actualiza el estado global con la respuesta
+      settingApp.value = response.data?.data;
+      return response.data;
+    } catch (err) {
+      error.value = "Error al actualizar la configuración";
+      console.error("updateSetting:", err);
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const fetchMenu = async () => {
+    try {
+      await nuxtApp.$api.get("/menu");
+    } catch (err) {
+      console.error("fetchMenu:", err);
     }
   };
 
   return {
-    menuGet,
+    // estado
+    settingApp,
+    loading,
+    error,
+
+    // acciones
+    fetchSettingApp,
+    updateSetting,
+    fetchMenu,
   };
 };

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import * as v from "valibot";
 import type { FormSubmitEvent } from "@nuxt/ui";
+import { useSetting } from "@/composables/services/useSetting";
+
+const { updateSetting, settingApp } = useSetting();
+const appSetting = settingApp.value;
 
 const schema = v.object({
   appTitle: v.pipe(v.string(), v.minLength(1, "Requerido")),
@@ -8,35 +12,72 @@ const schema = v.object({
   appThemeColor: v.string(),
   appLogo: v.any(),
   appFavicon: v.any(),
-  seoTitle: v.pipe(v.string(), v.minLength(1, "Requerido")),
-  seoDescription: v.pipe(v.string(), v.minLength(1, "Requerido")),
-  seoKeywords: v.pipe(v.string(), v.minLength(1, "Requerido")),
+
+  seoTitle: v.optional(v.string()),
+  seoDescription: v.optional(v.string()),
+  seoKeywords: v.optional(v.string()),
 });
 
 type Schema = v.InferOutput<typeof schema>;
 
 const state = reactive<Schema>({
-  appTitle: "",
-  appDescription: "",
-  appThemeColor: "#00C16A",
-  appLogo: null as File | null,
-  appFavicon: null as File | null,
-  seoTitle: "",
-  seoDescription: "",
-  seoKeywords: "",
+  appTitle: appSetting?.name ?? "",
+  appDescription: appSetting?.description ?? "",
+  appThemeColor: appSetting?.theme ?? "",
+  appLogo: appSetting?.logo ?? "",
+  appFavicon: appSetting?.favicon ?? "",
+  seoTitle: appSetting?.seo?.title ?? "",
+  seoDescription: appSetting?.seo?.description ?? "",
+  seoKeywords: appSetting?.seo?.keywords ?? "",
 });
 
 const toast = useToast();
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
-  toast.add({
-    title: "Configuración guardada",
-    description: "Los cambios se guardaron correctamente.",
-    color: "success",
-  });
+  console.log(appSetting);
+  console.log(state);
 
-  console.log(event.data);
+  const resp = await updateSetting(appSetting.id, {
+    name: state.appTitle,
+    description: state.appDescription,
+    theme: state.appThemeColor,
+    logo: state.appLogo,
+    favicon: state.appFavicon,
+    seo: {
+      title: state.seoTitle,
+      description: state.seoDescription,
+      keywords: state.seoKeywords,
+    },
+  });
+  if (resp.success) {
+    toast.add({
+      title: "Configuración guardada",
+      description: resp.message,
+      color: "success",
+    });
+  } else {
+    toast.add({
+      title: "Error al guardar ",
+      description: resp.message,
+      color: "error",
+    });
+  }
 }
+
+const themeColor = computed({
+  get() {
+    return state.appThemeColor || "#000000";
+  },
+  set(value: string) {
+    if (!value.startsWith("#")) {
+      value = `#${value}`;
+    }
+
+    if (/^#([0-9A-Fa-f]{3}){1,2}$/.test(value)) {
+      state.appThemeColor = value;
+    }
+  },
+});
 </script>
 <template>
   <div class="min-h-screen flex justify-center p-6">
@@ -58,8 +99,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             <UTextarea v-model="state.appDescription" class="w-full" />
           </UFormField>
 
-          <UFormField label="Theme Color" name="themeColor">
-            <UColorPicker v-model="state.appThemeColor" class="w-full" />
+          <UFormField label="Theme Color" name="appThemeColor">
+            <div class="flex items-center gap-3">
+              <!-- Color Picker -->
+              <UColorPicker v-model="themeColor" />
+
+              <!-- Input manual -->
+              <UInput v-model="themeColor" placeholder="#000000" class="w-32" />
+            </div>
           </UFormField>
 
           <UFormField label="Logo" name="appLogo">

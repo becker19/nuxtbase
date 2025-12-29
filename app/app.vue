@@ -1,5 +1,19 @@
-<script lang="ts">
-import ConfirmDialog from "@/components/ConfirmDialog.vue";
+<script setup lang="ts">
+import { useSetting } from "@/composables/services/useSetting";
+
+const { settingApp, fetchSettingApp } = useSetting();
+
+await fetchSettingApp();
+
+watch(
+  () => settingApp.value?.theme,
+  (theme) => {
+    if (theme) {
+      document.documentElement.style.setProperty("--ui-primary", theme);
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -7,7 +21,24 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-    <!-- Modal global -->
+
     <ConfirmDialog />
   </UApp>
 </template>
+
+<!-- <script setup lang="ts">
+import { useSetting } from "@/composables/services/useSetting";
+
+const { fetchSettingApp } = useSetting();
+await fetchSettingApp();
+</script>
+
+<template>
+  <UApp>
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+
+    <ConfirmDialog />
+  </UApp>
+</template> -->
